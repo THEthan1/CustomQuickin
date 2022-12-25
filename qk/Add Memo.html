@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* {
+  font-size: 20px;
+}
+#saveBtn {
+	float: left;
+	background-color: #4CDF50;
+} 
+
+#cancelBtn {
+	float: right;
+	background-color: #22222222;
+} 
+
+#deleteBtn {
+	float: right;
+	background-color: #FC4744;
+	margin-right: 20px;
+} 
+</style>
+</head>
+<body>
+	<form accept-charset="UTF-8" action="null" autocomplete="off" method="post" enctype="multipart/form-data">
+		<fieldset><legend id="page_title">New Memo</legend>
+			<label name="date" id="date title">Date:</label>
+				<input name="date" id="date" type="text" style="width:100px; height:20px; font-size:17px" value="" /><br /><br />
+			<label id="name title">Name:</label> 
+				<input list="nameList" id="nameSelect" style="width:90%; height:20px; font-size:17px">
+				<datalist id="nameList">
+				</datalist>
+				<button type="button" onclick="deleteName();" style="font-size: 13px;display: none;">delete selected name</button><br /><br />
+			<label id="doc link title">Document Link:</label><br /> 
+				<fieldset id="fileInputArea">
+				<input id="fileInput" type="file" value="" style="font-size:13px;"/>
+			</fieldset><br /><br />
+	  		<label id="account title">Account:</label> 
+				<input list="accountList" id="accountSelect" style="width:150px; height:20px; font-size:17px">
+				<datalist id="accountList">
+				</datalist>
+				<button type="button" onclick="deleteAccount();" style="font-size: 13px">delete selected account</button><br /><br />
+	    	<label for="notes title">Notes:</label><br />
+				<textarea name="notes" id="notes" placeholder="Additional notes...." cols="60" rows="5"></textarea><br /><br />
+	 	    <label>Hide:</label><input name="hidden" id="hidden" type="checkbox"/><br /><br />
+  	  		<button type="button" name="saveBtn" id="saveBtn" onclick="saveMemo(this);">Add</button>
+			<button class="cancelBtn" id="cancelBtn" type="button" onclick="location.href='View Memos.html';">Cancel</button>
+			<button class="deleteBtn" id="deleteBtn" type="button" style="display: none;" onclick="deleteMemo(this);">Delete</button>
+		</fieldset>
+	</form>
+</body>
+<script>
+	var saved_data;
+	var edit_id = "";
+	var last_memo_num = 100;
+ 	setValues();
+	
+	function setValues() {
+	    var date = new Date();
+	    var month = date.getMonth() + 1;
+	    var day = date.getDate();
+	    var year = date.getFullYear().toString().substr(-2);
+
+	    document.getElementById("date").value = String(month) + "/" + String(day) + "/" + String(year);
+  
+	    var xmlhttp = new XMLHttpRequest();
+	    xmlhttp.onreadystatechange = function() {
+	      if (this.readyState == 4 && this.status == 200) {
+	      var page_values = JSON.parse(this.responseText);
+	  	var names = page_values.names;
+	  	var accounts = page_values.accounts;
+	  	var Name = document.getElementById('nameSelect').value;
+	  	var Account = document.getElementById('accountSelect').value;
+
+	    var list = document.getElementById("nameList");
+	    for(index in names) {
+			var option = document.createElement('option');
+			option.value = names[index];
+			list.appendChild(option);
+	   	 }
+		 
+	   	 list = document.getElementById("accountList");
+	   	 for(index in accounts) {
+ 			var option = document.createElement('option');
+ 			option.value = accounts[index];
+ 			list.appendChild(option);
+	    }
+
+		  getSaveData();
+	      }
+	    };
+	  xmlhttp.open("POST", "load_data.php", true);
+	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	  xmlhttp.send("file=page_values.json");
+	}
+
+function getSaveData() {
+  	  var xmlhttp = new XMLHttpRequest();
+  	  xmlhttp.onreadystatechange = function() {
+  	    if (this.readyState == 4 && this.status == 200) {
+    	    saved_data = JSON.parse(this.responseText);
+			checkMode();
+    	}
+      };
+  	  xmlhttp.open("POST", "load_data.php", true);
+  	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+  	  xmlhttp.send("file=memos.json");	
+	}
+
+function checkMode() {
+	var vars = getUrlVars();
+	if (vars["mode"] == "edit") {
+		edit_id = vars["memo_id"];
+		var memos = saved_data.memos;
+		for (i in memos) {
+			if (memos[i].id == edit_id) {
+				setEditMode(memos[i]);
+				break;
+			}
+		}
+	}
+}
+
+function getUrlVars() {
+    var vars = {};
+    var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+        vars[key] = decodeURI(value);
+    });
+    return vars;
+}
+
+function setEditMode(memo) {		
+	var saveBtn = document.getElementById('saveBtn');
+	saveBtn.innerHTML = "Save";
+	
+	var deleteBtn = document.getElementById('deleteBtn');
+	deleteBtn.style.display="block";
+
+	last_memo_num = parseInt(memo.memo_num) - 1;
+
+	document.getElementById('page_title').innerHTML = "Edit Memo #" + memo.memo_num;
+	var dateField = document.getElementById('date');
+	dateField.value = memo.date;
+	var dateArr = memo.date.split("/");
+	dateField.name = dateArr[dateArr.length-1];
+	document.getElementById('nameSelect').value = memo.name;
+	document.getElementById('accountSelect').value = memo.account;
+	document.getElementById('notes').innerHTML = memo.notes;
+	document.getElementById('hidden').checked = memo.hide;
+	document.getElementById('fileInput').name = memo.link;
+	document.getElementById("fileInputArea").style.display = "none";
+	
+	var docLinkTitle = document.getElementById('doc link title');
+	docLinkTitle.innerHTML = docLinkTitle.innerHTML +" "+ memo.link;
+}
+  
+	function saveMemo(sender) {
+		var fileInput = document.getElementById('fileInput');
+		var linkPath = fileInput.value;
+		var linkArr = linkPath.split("\\");
+		var link = linkArr[linkArr.length-1];
+
+		if (edit_id != "" && linkPath == "") {
+			link = fileInput.name;
+			linkPath = link;
+		}
+
+		var dateField = document.getElementById('date');
+		var date = dateField.value;
+		var date_set = date.split("/");
+
+		if (edit_id == "" || (date_set.length != 0 && dateField.name != date_set[date_set.length-1])) {
+			updateLastMemoNum(date);
+		}
+
+		var new_memo = {
+   		 memo_num: ++last_memo_num,
+   		 date: date,
+     	 name: document.getElementById('nameSelect').value,
+   		 link: link,
+         account: document.getElementById('accountSelect').value,
+   		 notes: document.getElementById('notes').value,
+   		 hide: document.getElementById('hidden').checked,
+		 id: "ID"+Math.floor( Date.now() / 1000 )
+		};
+
+		var error = false;
+		if (new_memo.date == "") {
+			error = true;
+			document.getElementById('date title').style.color = "red";
+		}else if (date_set.length != 3 || date_set[0].length > 2 || date_set[1].length > 2 || date_set[2].length > 2) {
+			document.getElementById('date title').style.color = "red";
+			alert("Date must be in xx/xx/xx format.");
+			return;
+		}else{document.getElementById('date title').style.color = "black";}
+		
+		if (new_memo.name == "") {
+			error = true;
+			document.getElementById('name title').style.color = "red";
+		}else{document.getElementById('name title').style.color = "black";}
+		if (linkPath == "") {
+			error = true;
+			document.getElementById('doc link title').style.color = "red";
+		}else{document.getElementById('doc link title').style.color = "black";}
+		if (new_memo.account == "") {
+			error = true;
+			document.getElementById('account title').style.color = "red";
+		}else{document.getElementById('account title').style.color = "black";}
+		
+		if (edit_id == "") {
+			for (i in saved_data.memos) {		
+				if (saved_data.memos[i].link == link) {
+					document.getElementById('doc link title').style.color = "red";
+					alert("Document Link name already exists in the database.\nPlease change the source files name and then re-select it.");
+					return;
+				}
+			}
+		}
+		
+		if (error == true) {
+			alert("One or more required fields were not filled out.");
+			return;
+		}
+
+    	var file = "memos.json";
+		if (edit_id != "") {
+			deleteMemo(sender);		
+			new_memo.id = edit_id;
+		}
+
+  		updatePageValues(new_memo.name, new_memo.account, last_memo_num);
+		saved_data.memos.push(new_memo);
+  		var data = JSON.stringify(saved_data);
+  		saveData(data, file);
+	}
+	
+	function updateLastMemoNum(date) {
+	    var currentDate = new Date();
+		var currentYear = parseInt(currentDate.getFullYear().toString().substr(-2));
+		var dateArr = date.split("/");
+		var year = parseInt(dateArr[dateArr.length-1]);
+
+		last_memo_num = 100;
+		var new_memo_num = 100;
+		for (i in saved_data.memos) {
+			var memo = saved_data.memos[i];
+			dateArr = memo.date.split("/");
+			y = parseInt(dateArr[dateArr.length-1]);
+			
+			var memo_num = parseInt(memo.memo_num);
+			if (y == year && memo_num >= last_memo_num) {
+				last_memo_num = memo_num;
+			}
+		}		
+	}
+	
+    function deleteMemo(sender) {
+    	for (i in saved_data.memos) {		
+    		var memo = saved_data.memos[i];
+    		if (memo.id == edit_id) {
+				if (sender.innerHTML != "Delete") {
+					var docs = saved_data.memos[i].documents;
+					saved_data.memos.splice(i, 1);;
+				}
+				else if (confirm('This will permanently delete this Memo from the database.\nAre you sure you wish to continue?')) {
+					if (confirm('This action cannot be undone.\nAre you sure you wish to continue?')) {
+						if (confirm('This is your final warning!\nIf you click "OK", this memo will be perminantly deleted.\nAre you sure you wish to continue?')) {
+						  	saved_data.memos.splice(i, 1);
+							edit_id = "DELETED";
+							++last_memo_num
+							saveData(JSON.stringify(saved_data),"memos.json");
+						}
+					}
+				}
+				break;
+    		}
+    	}
+    }
+	
+	function updatePageValues(Name,Account,memo_num) {	
+	  var file = "page_values.json";
+	  var xmlhttp = new XMLHttpRequest();
+	  xmlhttp.onreadystatechange = function() {
+	    if (this.readyState == 4 && this.status == 200) {
+
+	    var page_values = JSON.parse(this.responseText);
+
+  		if (Name != "" && Name != null && page_values.names.indexOf(Name) == -1) {						
+  		    page_values.names.push(Name);
+  		}
+
+  		if (Account != "" && Account != null && page_values.accounts.indexOf(Account) == -1) {						
+  		    page_values.accounts.push(Account);
+  		}
+				
+		var data = JSON.stringify(page_values);
+		saveData(data, file);
+	}
+	  };
+	  xmlhttp.open("POST", "load_data.php", true);
+	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	  xmlhttp.send("file=" + file);
+	}
+	
+	function saveData(data,file) {
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+				if (file == "memos.json") {
+					var action = " saved ";
+					if (edit_id == "DELETED") {
+						action = " deleted "
+					}
+					else if (edit_id != "") {
+						action = " updated "
+					}
+					alert("Memo #"+ last_memo_num + action +"succefully!")
+					window.open('View Memos.html', '_self');
+				}
+			}
+		};
+		xmlhttp.open("POST", "save_data.php", true);
+		xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		xmlhttp.send("data=" + data + "&file=" + file);
+	}
+	
+	function deleteName() {
+	  var file = "page_values.json";
+	  var select = document.getElementById('nameSelect');
+	  var selectedName = select.value;
+	  if (selectedName == "" || selectedName == null) {return}
+	  if (confirm('Are you sure you want to delete "'+selectedName+'" from the list?\n(this will not affect anything stored in the database)')) {
+	  	  var xmlhttp = new XMLHttpRequest();
+	  	  xmlhttp.onreadystatechange = function() {
+	  	    if (this.readyState == 4 && this.status == 200) {
+	  	    var page_values = JSON.parse(this.responseText);
+		
+			if (selectedName != null && selectedName != "") {
+				var index = page_values.names.indexOf(selectedName);
+				if (index > -1) {
+					page_values.names.splice(index, 1);
+				}
+				
+		    	var list = document.getElementById("nameList");
+				var len = list.options.length;
+				for (i = 0; i < len; i++) {
+					list.children[0].remove()
+				}
+				
+			    for(index in page_values.names) {
+					var option = document.createElement('option');
+					option.value = page_values.names[index];
+					list.appendChild(option);
+			   	 }
+				
+				select.value = "";
+				
+				var data = JSON.stringify(page_values);
+				saveData(data, file);
+			}else {return}
+	  	  }
+	  	  };
+	  	  xmlhttp.open("POST", "load_data.php", true);
+	  	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	  	  xmlhttp.send("file=" + file);
+	  }
+	}
+	
+	function deleteAccount() {
+	  var file = "page_values.json";
+	  var select = document.getElementById('accountSelect');
+	  var selectedAccount = select.value;
+	  if (selectedAccount == "" || selectedAccount == null) {return}
+	  if (confirm('Are you sure you want to delete "'+selectedAccount+'" from the list?\n(this will not affect anything stored in the database)')) {
+	  	  var xmlhttp = new XMLHttpRequest();
+	  	  xmlhttp.onreadystatechange = function() {
+	  	    if (this.readyState == 4 && this.status == 200) {
+	  	    var page_values = JSON.parse(this.responseText);
+		
+			if (selectedAccount != null && selectedAccount != "") {
+				var index = page_values.accounts.indexOf(selectedAccount);
+				if (index > -1) {
+					page_values.accounts.splice(index, 1);
+				}
+				
+		    	var list = document.getElementById("accountList");
+				var len = list.options.length;
+				for (i = 0; i < len; i++) {
+					list.children[0].remove()
+				}
+				
+			    for(index in page_values.accounts) {
+					var option = document.createElement('option');
+					option.value = page_values.accounts[index];
+					list.appendChild(option);
+			   	 }
+				
+				select.value = "";
+				
+				var data = JSON.stringify(page_values);
+				saveData(data, file);
+			}else {return}
+	  	  }
+	  	  };
+	  	  xmlhttp.open("POST", "load_data.php", true);
+	  	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	  	  xmlhttp.send("file=" + file);
+	  }
+	}
+	
+	function uploadFile() {
+		const url = 'upload_document.php';
+	    const files = document.querySelector('[type=file]').files;
+	    const formData = new FormData();
+		
+        formData.append('files[]', files[0]);
+		
+	    fetch(url, {
+	        method: 'POST',
+	        body: formData
+	    }).then(response => {
+	        console.log(response);
+	    });
+		
+		return true;
+	}
+</script>
+</html>
+
+

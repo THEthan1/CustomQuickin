@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+	* {
+	  box-sizing: border-box;
+	  font-size: 20px;
+	}
+	
+	#saveBtn {
+		float: left;
+		background-color: #4CDF50;
+	} 
+
+	#cancelBtn {
+		float: right;
+		background-color: #22222222;
+	} 
+
+	#deleteBtn {
+		float: right;
+		background-color: #FC4744;
+		margin-right: 20px;
+	} 
+</style>
+</head>
+<body>
+	<form accept-charset="UTF-8" action="null" autocomplete="off" method="GET" target="_blank">
+		<fieldset><legend id="page_title">New Entity</legend>
+			<label id="title title">Title:</label> 
+				  <input type="text" name="titleValue" id="titleValue" placeholder="add new title" style="width:250px; height:20px; font-size:15px"/><br /><br />
+			<label id="main phone title">Main Phone Number:</label>
+				<input name="main_phone" id="main_phone" type="tel" placeholder="02-777-8888" style="width:250px; height:20px; font-size:15px;"/><br /><br />
+			<label id="contact title">Contact Name:</label> 
+				  <input type="text" name="contact_name" id="contact_name" placeholder="add new contact name" style="width:250px; height:20px; font-size:15px;"/><br /><br />
+			<label id="email title">Email Address:</label> 
+				  <input type="email" name="email_address" id="email_address" placeholder="john_doe@example.com" style="width:250px; height:20px; font-size:15px;"><br /><br />
+			<label id="fax title">Fax Number:</label> 
+				<input name="fax_number" id="fax_number" type="tel" style="width:250px; height:20px; font-size:15px;" placeholder="04-777-8888" /><br /><br />
+			<label id="website title">Website:</label> 
+				<input name="website" id="website" type="text" style="width:250px; height:20px; font-size:15px;" placeholder="www.example.com" /><br /><br />
+	    	<label for="notes title">Notes:</label><br />
+				<textarea name="notes" id="notes" placeholder="Additional info...." cols="50" rows="4"></textarea><br /><br />
+	  		<label id="group title">Group:</label> 
+				<select name="groupSelect" id="groupSelect" style="width:150px; height:30px;"><option></option>
+				</select><button type="button" onclick="manageGroups();" style="font-size:13px">Manage Groups</button><br /><br />
+	  		<label id="type title">Type:</label> 
+				<select name="typeSelect" id="typeSelect" style="width:160px; height:30px;">
+				    <option></option>
+				    <option>Mail</option>
+				</select><button type="button" onclick="manageTypes();" style="font-size:13px">Manage Types</button><br /><br />
+	 	    <label>Hide:</label><input name="hidden" id="hidden" type="checkbox"/><br /><br />
+			<label id="priority title">Priority:</label> 
+				  <input type="number" name="priority" id="priority" placeholder="0" style="width:60px; height:20px; font-size:15px;"><br /><br />
+	  	  	<button id="saveBtn" name="saveBtn" type="button" onclick="saveEntity(this);">Add</button>
+			<button class="cancelBtn" id="cancelBtn" type="button" onclick="location.href='View Entities.html';">Cancel</button>
+			<button class="deleteBtn" id="deleteBtn" type="button" style="display: none;" onclick="deleteEntity(this);">Delete</button>
+		</fieldset>
+	</form>
+</body>
+<script>
+	var saved_data;
+	var edit_id = "";
+ 	getSaveData();
+	
+	function setListValues() {
+	    var xmlhttp = new XMLHttpRequest();		
+	    xmlhttp.onreadystatechange = function() {			
+	    if (this.readyState == 4 && this.status == 200) {			
+	    	var page_values = JSON.parse(this.responseText);
+	  		var groups = page_values.groups;
+	  		var types = page_values.types;
+		
+	    	var select = document.getElementById("groupSelect");
+			var len = select.options.length;
+			for (i = 0; i < len; i++) {
+				select.remove(1);
+			}
+	    	for(index in groups) {
+	    		select.options[select.options.length] = new Option(groups[index], index);
+	   		}
+	   	 	select = document.getElementById("typeSelect");
+			len = select.options.length;
+			for (i = 2; i < len; i++) {
+				select.remove(2);
+			}
+	   	 	for(index in types) {
+	    		select.options[select.options.length] = new Option(types[index], index);
+	    	}
+			
+		 	checkMode();
+	     }
+	  };	  
+	  xmlhttp.open("POST", "load_data.php", true);
+	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	  xmlhttp.send("file=page_values.json");	  
+	}
+	
+	function getSaveData() {
+  	  var xmlhttp = new XMLHttpRequest();
+  	  xmlhttp.onreadystatechange = function() {
+  	    if (this.readyState == 4 && this.status == 200) {
+    	    saved_data = JSON.parse(this.responseText);
+			setListValues();
+    	}
+      };
+  	  xmlhttp.open("POST", "load_data.php", true);
+  	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+  	  xmlhttp.send("file=entities.json");	
+	}
+	
+	function getUrlVars() {
+	    var vars = {};
+	    var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+	        vars[key] = decodeURI(value);
+	    });
+	    return vars;
+	}
+	
+	function checkMode() {
+		var vars = getUrlVars();
+		if (vars["mode"] == "edit") {
+			var entity_title = vars["entity_title"];
+			var entities = saved_data.entities;
+			for (i in entities) {
+				if (entities[i].title == entity_title) {
+					setEditMode(entities[i]);
+					break;
+				}
+			}
+		}
+	}
+	
+	function setEditMode(entity) {		
+		var saveBtn = document.getElementById('saveBtn');
+		saveBtn.innerHTML = "Save";
+		edit_id = entity.title;
+		
+		var deleteBtn = document.getElementById('deleteBtn');
+		//deleteBtn.style.display="";
+		
+		var title = document.getElementById('titleValue');
+		title.value = entity.title
+		title.readOnly = true;
+		
+		document.getElementById('page_title').innerHTML = "Edit Entity";
+		document.getElementById('titleValue').value = entity.title;
+		document.getElementById('main_phone').value = entity.phone;
+		document.getElementById('contact_name').value = entity.contact;
+		document.getElementById('email_address').value = entity.email;
+		document.getElementById('fax_number').value = entity.fax;
+		document.getElementById('website').value = entity.website;
+		document.getElementById('notes').value = entity.notes;
+		document.getElementById('hidden').checked = entity.hide;
+		if (entity.priority != 1000000) {document.getElementById('priority').value = entity.priority;}
+		else {document.getElementById('priority').value = "";}
+
+		var groups = document.getElementById('groupSelect');
+		for (i = 0; i < groups.options.length; i++) {
+		    if (groups.options[i].text === entity.group) {
+		        groups.selectedIndex = i;
+		        break;
+		    }
+		}
+		
+		var types = document.getElementById('typeSelect');
+		for (i = 0; i < types.options.length; i++) {
+		    if (types.options[i].text === entity.type) {
+		        types.selectedIndex = i;
+		        break;
+		    }
+		}	
+	}
+  
+	function saveEntity(sender) {
+		var group = document.getElementById('groupSelect');
+		var type = document.getElementById('typeSelect');
+		var num = parseInt(document.getElementById('priority').value);
+		if (num == null || num < 1) {
+			num = 1000000
+		}
+		
+		var new_entity = {
+   		 title: document.getElementById('titleValue').value,
+   		 phone: document.getElementById('main_phone').value,
+     	 contact: document.getElementById('contact_name').value,
+   		 email: document.getElementById('email_address').value,
+         fax: document.getElementById('fax_number').value,
+   		 website: document.getElementById('website').value,
+   		 notes: document.getElementById('notes').value,
+   		 group: group.options[group.selectedIndex].innerHTML,
+   		 type: type.options[type.selectedIndex].innerHTML,
+   		 hide: document.getElementById('hidden').checked,
+   		 priority: parseInt(document.getElementById('priority').value),
+		 documents:[] 
+		};
+
+		document.getElementById('title title').style.color = "black";
+		
+		var error = false;
+		if (new_entity.title == "") {
+			error = true;
+			document.getElementById('title title').style.color = "red";
+		}else{document.getElementById('title title').style.color = "black";}
+		
+		if (new_entity.group == "") {
+			error = true;
+			document.getElementById('group title').style.color = "red";
+		}else{document.getElementById('group title').style.color = "black";}
+		
+		if (new_entity.type == "") {
+			error = true;
+			document.getElementById('type title').style.color = "red";
+		}else{document.getElementById('type title').style.color = "black";}
+		
+		if (error == true) {
+			alert("One or more required fields were not filled out.");
+			return;
+		}
+
+		var priority = new_entity.priority;
+		if (isNaN(priority) || priority == "" || priority == null || priority < 1) {
+			new_entity.priority = 1000000;
+		}
+
+		var site = new_entity.website;
+		if (site != null && site != "" && !site.startsWith("http")) {
+			new_entity.website = "http://" + site;
+		}
+
+		if (edit_id != "") {
+			new_entity.documents = deleteEntity(sender);		
+			saved_data.entities.push(new_entity);
+	  		var data = JSON.stringify(saved_data);
+	  		saveData(data, "entities.json");
+		}
+		else {
+			for (i in saved_data.entities) {
+				if (saved_data.entities[i].title == new_entity.title) {
+					document.getElementById('title title').style.color = "red";
+					alert("Title name '"+new_entity.title+"' is already in use. Please input a different value for 'Title'.");
+					return;
+				}
+			}
+	
+			saved_data.entities.push(new_entity);
+			var data = JSON.stringify(saved_data);
+			saveData(data, "entities.json");	
+		}
+	}
+	
+	function deleteEntity(sender) {
+		for (i in saved_data.entities) {		
+			if (saved_data.entities[i].title == edit_id) {
+				if (sender.innerHTML != "Delete") {
+					var docs = saved_data.entities[i].documents;
+					saved_data.entities.splice(i, 1);;
+					return docs;
+				}
+				else if (confirm('This will permanently delete this Entity from the database, along with any document links associated with it.\nAre you sure you wish to continue?')) {
+					saved_data.entities.splice(i, 1);;
+					saveData(JSON.stringify(saved_data),"entities.json");
+				}
+				
+				break;
+			}
+		}
+	}
+	
+	function saveData(data,file) {
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+				if (file == "entities.json") {
+					window.open('View Entities.html', '_self');
+				}
+			}
+		};
+		xmlhttp.open("POST", "save_data.php", true);
+		xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		xmlhttp.send("data=" + data + "&file=" + file);
+	}
+	
+	function manageGroups() {
+	  var groupName = prompt("Enter a new Group name to add it to the list.\nEnter an existing Group name to remove it from the list.", "");
+		
+  	  var file = "page_values.json";
+  	  var xmlhttp = new XMLHttpRequest();
+  	  xmlhttp.onreadystatechange = function() {
+  	    if (this.readyState == 4 && this.status == 200) {
+			
+  	    var page_values = JSON.parse(this.responseText);
+		
+		if (groupName != null && groupName != "") {
+			var index = page_values.groups.indexOf(groupName);
+			if (index > -1 && confirm('Are you sure you want to delete "'+groupName+'" from the list?\n(this will not affect anything stored in the database)')) {
+				page_values.groups.splice(index, 1);
+			}
+			else {
+				page_values.groups.push(groupName);
+			}
+		} 
+		
+		var data = JSON.stringify(page_values);
+		saveData(data, file);
+		setListValues();
+  	  }
+  	  };
+  	  xmlhttp.open("POST", "load_data.php", true);
+  	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+  	  xmlhttp.send("file=" + file);
+	}
+	
+	function manageTypes() {
+	  var typeName = prompt("Enter a new Type name to add it to the list.\nEnter an existing Type name to remove it from the list.", "");
+		
+  	  var file = "page_values.json";
+  	  var xmlhttp = new XMLHttpRequest();
+  	  xmlhttp.onreadystatechange = function() {
+  	    if (this.readyState == 4 && this.status == 200) {
+			
+  	    var page_values = JSON.parse(this.responseText);
+		
+		if (typeName != null && typeName != "") {
+			var index = page_values.types.indexOf(typeName);
+			if (index > -1 && confirm('Are you sure you want to delete "'+typeName+'" from the list?\n(this will not affect anything stored in the database)')) {
+				page_values.types.splice(index, 1);
+			}
+			else {
+				page_values.types.push(typeName);
+			}
+		} 
+		
+		var data = JSON.stringify(page_values);
+		saveData(data, file);
+		setListValues();
+  	  }
+  	  };
+  	  xmlhttp.open("POST", "load_data.php", true);
+  	  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+  	  xmlhttp.send("file=" + file);
+	}
+</script>
+</html>
+
+

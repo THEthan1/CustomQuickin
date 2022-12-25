@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+	* {
+	  box-sizing: border-box;
+	  font-size: 18px;
+	}
+
+body {font-family: Arial;}
+
+/* Style the tab */
+.tab {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background-color: #f1f1f1;
+}
+
+/* Style the buttons inside the tab */
+.tab button {
+  background-color: inherit;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  transition: 0.3s;
+  font-size: 17px;
+}
+
+/* Change background color of buttons on hover */
+.tab button:hover {
+  background-color: #ddd;
+}
+
+/* Create an active/current tablink class */
+.tab button.active {
+  background-color: #ccc;
+}
+
+/* Style the tab content */
+.tabcontent {
+  display: none;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-top: none;
+}
+#search_bar {
+  background-image: url('search_icon.png');
+  background-position: 0px 0px;
+  background-repeat: no-repeat;
+  width: 97%;
+  height:45px;
+  font-size: 20px;
+  padding: 12px 20px 12px 40px;
+  border: 1px solid #ddd;
+  margin-bottom: 12px;
+  margin-top: 5px;
+}
+
+#data_table {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #ddd;
+  font-size: 18px;
+}
+
+#data_table th, #data_table td {
+  text-align: left;
+  padding: 12px;
+}
+
+#data_table tr {
+  border-bottom: 1px solid #ddd;
+}
+
+#data_table tr.header, #data_table tr:hover {
+  background-color: #f1f1f1;
+}
+
+#new_btn {
+  float: left;
+} 
+
+#groupsLabel {
+  padding-left: 75px;
+} 
+
+#typesLabel {
+  padding-left: 75px;
+} 
+
+#titlesLabel {
+  padding-left: 75px;
+} 
+
+</style>
+<script src="jquery-3.3.1.min.js"></script>
+</head>
+<body>
+<label id="header" style="font-size:30px;">General Info</label>
+<button id="homeBtn" type="button" style="position: absolute; right: 7px;" onclick="window.open('http://localhost/Site Launcher.html', '_self');">Home</button><br />
+<button id="excelBtn" type="button" style="position: absolute; right: 7px; background-color: #4CAF50; color: white;" onclick="createExcelFile();">Export to Excel</button><br /><br />
+<div class="tab">
+  <button class="tablinks" id="general_tab" onclick="setSource(event, 'General')">General Info</button>
+  <button class="tablinks" id="documents_tab" onclick="setSource(event, 'Documents')">Documents</button>
+</div>
+<input type="text" id="search_bar" onkeyup="searchList();" placeholder="Search by Title, Name, Number, etc." title="Type a word or a number">
+<button class="btn" id="btn" type="button" onclick="document.getElementById('search_bar').value = ''; searchList();" style="width:2.5%; height:45px;">X</button><br />
+<button class="new_btn" id="new_btn" type="button" onclick="addNew(this)" width="10%">New Entity</button>
+<label id="hiddenLabel" style="padding-left:75px">Show Hidden:</label><input name="show_hidden" id="show_hidden" onchange="searchList()" type="checkbox"/>
+<label id="titlesLabel">Title: </label><select id="titleSelect" style="width:20%;" onchange="searchDocumentList()" style="width:100px"><option></option></select>
+<label id="groupsLabel">Group: </label><select id="groupSelect" style="width:20%;" onchange="searchEntityList()" style="width:100px"><option></option></select>
+<label id="typesLabel">Type: </label><select id="typeSelect" style="width:20%;" onchange="searchEntityList()" style="width:100px"><option></option><option>Mail</option></select><br /><br />
+
+<table id="data_table">
+  <tr class="header">
+    <th id="0th" style="width:3%;">#</th>
+    <th id="1st" style="width:20%;">Title</th>
+    <th id="2nd" style="width:10%;">Main Phone</th>
+    <th id="3rd" style="width:17%;">Contact Name</th>
+    <th id="4th" style="width:15%;">Email</th>
+    <th id="5th" style="width:10%;">Fax</th>
+    <th id="6th" style="width:10%;">Website</th>
+    <th id="7th" style="width:15%;">Edit</th>
+  </tr>
+</table>
+<script>
+	var allEntities;
+	var xmlhttp = new XMLHttpRequest();
+  	xmlhttp.onreadystatechange = function() {
+		if (this.readyState == 4 && this.status == 200) {
+    		var saved_data = JSON.parse(this.responseText);
+			allEntities = saved_data.entities;
+			orderByPriority();
+		  	var select = document.getElementById("titleSelect");
+			var titles = [];
+		  	for(index in allEntities) {
+		  		titles.push(allEntities[index].title);
+		 	}
+			
+			titles.sort();
+		  	for(index in titles) {
+		  		select.options[select.options.length] = new Option(titles[index], index);
+		 	}
+			
+		    var xmlhttp = new XMLHttpRequest();
+		    xmlhttp.onreadystatechange = function() {
+		      if (this.readyState == 4 && this.status == 200) {
+		      var page_values = JSON.parse(this.responseText);
+		  	var groups = page_values.groups;
+		  	var types = page_values.types;
+
+		   	var select = document.getElementById("groupSelect");
+		   	for(index in groups) {
+		      	select.options[select.options.length] = new Option(groups[index], index);
+		    	}
+		   	select = document.getElementById("typeSelect");
+		   	for(index in types) {
+		      	select.options[select.options.length] = new Option(types[index], index);
+		    	}
+	
+		  	var vars = getUrlVars();
+		  	var source = vars["source"];
+		  	if (source != null) {
+		  		document.getElementById("documents_tab").click();
+		  		var titles = document.getElementById('titleSelect');
+		  		for (i = 0; i < titles.options.length; i++) {
+		  		    if (titles.options[i].text === source) {
+		  		        titles.selectedIndex = i;
+		  				searchDocumentList();
+		  		        break;
+		  		    }
+		  		}
+		  	}
+		  	else {
+		  		document.getElementById("general_tab").click();
+		  	}
+		  	}
+		    };
+		  xmlhttp.open("POST", "load_data.php", true);
+		  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		  xmlhttp.send("file=page_values.json");
+    	}
+  };
+  xmlhttp.open("POST", "load_data.php", true);
+  xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+  xmlhttp.send("file=entities.json");
+
+function getUrlVars() {
+    var vars = {};
+    var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+        vars[key] = decodeURI(value);
+    });
+    return vars;
+}
+
+function addNew(btn) {
+	if (btn.innerHTML == "New Entity") {
+		window.open('Add Entity.html', '_self');
+	}
+	else {
+	    var titleSelect = document.getElementById("titleSelect");
+	    var title = titleSelect.options[titleSelect.selectedIndex].innerHTML;
+		if (title == "") {window.open('Add Document.html', '_self')}
+		else {window.open('Add Document.html?title='+encodeURI(title), '_self');}
+	}
+}
+
+function setSource(evt, source) {
+  document.getElementById("search_bar").value = "";
+
+  var gen = document.getElementById("general_tab");
+  var doc = document.getElementById("documents_tab");
+  
+  if (source == "General") {
+  	gen.style.backgroundColor = "#f99";
+  	doc.style.backgroundColor = "#f1f1f1";
+	document.getElementById("groupsLabel").style.display = "";
+	document.getElementById("groupSelect").style.display = "";
+	document.getElementById("typesLabel").style.display = "";
+	document.getElementById("typeSelect").style.display = "";
+	document.getElementById("titlesLabel").style.display = "none";
+	document.getElementById("titleSelect").style.display = "none";
+	document.getElementById("new_btn").innerHTML = "New Entity";
+	document.getElementById("header").innerHTML = "General Info";
+	
+	document.getElementById("0th").innerHTML = "#";
+	var _2nd = document.getElementById("2nd");
+	_2nd.innerHTML = "Main Phone";
+	_2nd.style.width = "10%";
+	document.getElementById("3rd").innerHTML = "Contact Name";
+	document.getElementById("4th").innerHTML = "Email";
+	document.getElementById("5th").innerHTML = "Fax";
+	document.getElementById("6th").innerHTML = "Website";
+	document.getElementById("7th").innerHTML = "Actions";
+	
+	searchEntityList();
+  }
+  else {
+	  	doc.style.backgroundColor = "#f99";
+  	gen.style.backgroundColor = "#f1f1f1";
+	document.getElementById("groupsLabel").style.display = "none";
+	document.getElementById("groupSelect").style.display = "none";
+	document.getElementById("typesLabel").style.display = "none";
+	document.getElementById("typeSelect").style.display = "none";
+	document.getElementById("titlesLabel").style.display = "";
+	document.getElementById("titleSelect").style.display = "";
+	document.getElementById("new_btn").innerHTML = "New Document";
+	document.getElementById("header").innerHTML = "Documents";
+	
+	document.getElementById("0th").innerHTML = "";
+	var _2nd = document.getElementById("2nd");
+	_2nd.innerHTML = "Document Name";
+	_2nd.style.width = "30%";
+	document.getElementById("3rd").innerHTML = "Document Link";
+	document.getElementById("4th").innerHTML = "Date";
+	document.getElementById("5th").innerHTML = "Notes";
+	document.getElementById("6th").innerHTML = "";
+	document.getElementById("7th").innerHTML = "Edit";
+	
+	searchDocumentList();
+  }
+}
+
+function orderByPriority() {
+  var organizedList = [];
+
+  if (allEntities.length > 0) {
+	  organizedList.push(allEntities.pop());
+  }else {return;}
+
+  while (allEntities.length > 0) {
+	  var entity = allEntities.pop();
+
+	  for (i = 0; i < organizedList.length; i++) {
+		  if (entity.priority <= organizedList[i].priority) {
+			  organizedList.splice(i, 0, entity);
+			  break;
+		  }
+		  else if (i == organizedList.length-1) {
+			  organizedList.push(entity);
+			  break;
+		  }
+		  else {}
+	  }
+  }
+  
+  allEntities = organizedList;
+}
+
+function searchList() {
+    if (document.getElementById("header").innerHTML == "Documents") {		
+		searchDocumentList();
+    }
+	else {
+    	searchEntityList();
+	}
+}
+
+
+function searchEntityList() {
+  var validEntities = allEntities.slice(0);
+  var searches = document.getElementById("search_bar").value.toUpperCase().split(" ");
+  var showHidden = document.getElementById("show_hidden").checked;
+  var groupSelect = document.getElementById("groupSelect");
+  var typeSelect = document.getElementById("typeSelect");
+
+  var group = groupSelect.options[groupSelect.selectedIndex].innerHTML;
+  var type = typeSelect.options[typeSelect.selectedIndex].innerHTML;
+  
+var i = 0;
+  while (i < validEntities.length) {
+  	var entity = validEntities[i];
+  	if (entity.hide == false || showHidden == true) {	
+		for (j in searches) {
+			var search = searches[j];	
+			if ((group == "" || group == null || group == entity.group) && (type == "" || type == null || type == entity.type)) {
+	      	  if (search != "" && search != null && !entity.title.toUpperCase().includes(search) && !entity.phone.toUpperCase().includes(search) && !entity.contact.toUpperCase().includes(search) && !entity.email.toUpperCase().includes(search) && !entity.fax.toUpperCase().includes(search) && !entity.website.toUpperCase().includes(search)) {
+        	validEntities.splice(i,1);
+				i--;
+				break;
+	      	  } 
+			}	
+			else {
+          		validEntities.splice(i,1);
+  				i--;
+				break;
+			}
+		}
+  	}
+	else {
+  		validEntities.splice(i,1);
+		i--;
+	}
+	
+	i++;
+  }
+
+  updateEntityList(validEntities);
+}
+
+function searchDocumentList() {
+  var validDocuments = [];
+  var searches = document.getElementById("search_bar").value.toUpperCase().split(" ");
+  var showHidden = document.getElementById("show_hidden").checked;
+  var titleSelect = document.getElementById("titleSelect");
+  var title = titleSelect.options[titleSelect.selectedIndex].innerHTML;
+
+  for (index in allEntities) {
+    if (allEntities[index].hide == false || showHidden == true) {	
+  	  	validDocuments = validDocuments.concat(allEntities[index].documents);
+	}
+  }
+    
+var i = 0;
+  while (i < validDocuments.length) {
+  	var doc = validDocuments[i];
+	for (j in searches) {
+		var search = searches[j];	
+		if (title == "" || title == null || title == doc.title) {
+     	  	 if (search != "" && search != null && !doc.title.toUpperCase().includes(search) && !doc.name.toUpperCase().includes(search) && !doc.link.toUpperCase().includes(search) && !doc.date.toUpperCase().includes(search)) {
+    	validDocuments.splice(i,1);
+			i--;
+			break;
+      	  } 
+		}	
+		else {
+      		validDocuments.splice(i,1);
+			i--;
+			break;
+		}
+	}
+	
+	i++;
+  }
+
+  updateDocumentList(organizeDocuments(validDocuments));
+}
+
+function organizeDocuments(docs) {
+    var ordered = [];
+	var pinned = [];
+
+	var index = 0;
+    while (index < docs.length-1 && docs[index].pinned) {
+		index++;
+    }
+
+    ordered.push(docs[index]);
+	docs.splice(index, 1);
+	
+    while (docs.length > 0) {
+  	  var doc = docs.pop();
+
+  	  for (i = 0; i < ordered.length; i++) {
+		  if (doc.pinned == true) {
+			  pinned.push(doc);
+  			  break;
+		  }
+  		  else if (Date.parse(doc.date) >= Date.parse(ordered[i].date)) {
+  			  ordered.splice(i, 0, doc);
+  			  break;
+  		  }
+  		  else if (i == ordered.length-1) {
+  			  ordered.push(doc);
+  			  break;
+  		  }
+  	  }
+    }
+
+    return pinned.concat(ordered);
+}
+
+function updateEntityList(entities) {
+	var table = document.getElementById("data_table");
+	var count = table.rows.length;
+	for (i = 1; i < count; i++) {
+		table.deleteRow(1);
+	}
+
+	for (i = 0; i < entities.length; i++) {
+		var entity = entities[i];
+		var row = table.insertRow(table.rows.length);
+		
+		var createClickHandler = function(title) {
+		      return function() {
+				  var titleSelect = document.getElementById("titleSelect");
+				  for (index in titleSelect.options) {
+					  var option = titleSelect.options[index];
+					  if (option.innerHTML == title) {
+						  titleSelect.selectedIndex = index;
+						  break;
+					  }
+				  }
+				  document.getElementById("documents_tab").click();
+		      };
+		};
+		
+		var num_cell = row.insertCell(0);
+		var title_cell = row.insertCell(1);
+		var phone_cell = row.insertCell(2);
+		var contact_cell = row.insertCell(3);
+		var email_cell = row.insertCell(4);
+		var fax_cell = row.insertCell(5);
+		var website_cell = row.insertCell(6);
+		var more_cell = row.insertCell(7);
+
+		if (entity.priority != 1000000) {
+			num_cell.innerHTML = entity.priority;
+		}
+		
+		title_cell.innerHTML = entity.title;		
+		phone_cell.innerHTML = entity.phone;		
+		contact_cell.innerHTML = entity.contact;		
+		email_cell.innerHTML = entity.email;
+		fax_cell.innerHTML = entity.fax;
+		website_cell.innerHTML = '<a href="'+entity.website+'" target="_blank">'+entity.website+'</a>';
+	
+		if (entity.notes != "" && entity.notes != null) {
+	 	   more_cell.innerHTML = '<button type="button" name="'+entity.notes+'" style="font-size:17px" onclick="showNotes(this)">view notes</button><br /><button type="button" name="'+entity.title+'" id="Entity" style="font-size:17px" onclick="openEdit(this)">edit</button>';
+		}	
+		else {more_cell.innerHTML = '<button type="button" name="'+entity.title+'" id="Entity" style="font-size:17px" onclick="openEdit(this)">edit</button>'}
+
+		num_cell.onclick = createClickHandler(entity.title);
+		title_cell.onclick = createClickHandler(entity.title);	
+		phone_cell.onclick = createClickHandler(entity.title);	
+		contact_cell.onclick = createClickHandler(entity.title);	
+		email_cell.onclick = createClickHandler(entity.title);
+		fax_cell.onclick = createClickHandler(entity.title);
+	}
+}
+
+function updateDocumentList(documents) {
+	var table = document.getElementById("data_table");
+	var count = table.rows.length;
+	for (i = 1; i < count; i++) {
+		table.deleteRow(1);
+	}
+
+	for (index in documents) {
+		var doc = documents[index];
+		var row = table.insertRow(table.rows.length);
+				
+		var createClickHandler = function() {
+		      return function() {
+				  //var response = prompt("Enter a new Group name to add it to the list.\nEnter an existing Group name to remove it from the list.", "");
+		      };
+		};
+		row.onclick = createClickHandler();
+				
+		var num_cell = row.insertCell(0);
+		var title_cell = row.insertCell(1);
+		var name_cell = row.insertCell(2);
+		var link_cell = row.insertCell(3);
+		var date_cell = row.insertCell(4);
+		var notes_cell = row.insertCell(5);
+		var cell6 = row.insertCell(6);
+		var edit_cell = row.insertCell(7);
+
+		if (doc.pinned) {num_cell.innerHTML = "&#x1F4CC";}
+		else {num_cell.innerHTML = "";}
+		
+		title_cell.innerHTML = doc.title;		
+		name_cell.innerHTML = doc.name;	
+		link_cell.innerHTML = '<a href="http://localhost/docs/Documents/'+doc.link+'" target="_blank">'+doc.link+'</a>';	
+		date_cell.innerHTML = doc.date;
+		
+		if (doc.notes != "" && doc.notes != null) {
+	 	   notes_cell.innerHTML = '<button type="button" name="'+doc.notes+'" style="font-size:15px" onclick="showNotes(this)">view notes</button>';
+		}	
+		else {notes_cell.innerHTML = ""}
+		
+		edit_cell.innerHTML = '<button type="button" name="'+doc.title+'" id="'+doc.id+'" style="font-size:17px" onclick="openEdit(this)">edit</button>';
+	}
+}
+
+function showNotes(notes) {
+	alert(notes.name);
+}
+
+function openEdit(sender) {
+	if (sender.id == "Entity") {
+		window.open('Add Entity.html?mode=edit&entity_title='+encodeURI(sender.name), '_self');
+	}
+	else {
+		window.open('Add Document.html?mode=edit&entity_title='+encodeURI(sender.name)+'&document_id='+encodeURI(sender.id), '_self');
+	}
+}
+
+function saveData(data,file) {
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.onreadystatechange = function() {
+		if (this.readyState == 4 && this.status == 200) {
+			searchList();
+		}
+	};
+	xmlhttp.open("POST", "save_data.php", true);
+	xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	xmlhttp.send("data=" + data + "&file=" + file);
+}
+
+  function createExcelFile() {
+	  var fileName = prompt("Please enter a name for the Excel file:", "My Database");
+	  if (fileName != null && fileName != "") {
+		  var entities = [];
+		  var documents = [];
+		  for (i in allEntities) {
+			  var docs = [];
+			  var entity = allEntities[i];
+			  
+			  var docText = "";
+			  for (j = 0; j < entity.documents.length; j++) {
+				  var count = j+1;
+				  var doc = entity.documents[j];
+				  doc.pinned = false;
+				  docs.push(doc);
+				  docText += ""+ count +")"+ doc.name +" "+ doc.date +" "+ doc.link + " - Notes:"+ doc.notes +"\t";
+			  }
+			  
+			  entity.documents = docText;
+			  entity.hide = undefined;
+			  entity.priority = undefined;
+			  entity.group = undefined;
+			  entity.type = undefined;
+			  entities.push(JSON.parse(JSON.stringify(entity)));
+
+			  documents = documents.concat(organizeDocuments(docs));
+		  }
+
+		  var data = JSON.stringify(entities);
+		  JSONToCSVConvertor(data,fileName + " - Entities");
+		  
+		  for (i in documents) {
+			  if (documents[i] == null) {
+			  	documents.splice(i, 1)
+			  }
+			  else {
+	 			  documents[i].pinned = undefined;
+	 			  documents[i].id = undefined;	
+			  }
+		  }
+		  
+		  setTimeout(function () {
+			  var docData = JSON.stringify(JSON.parse(JSON.stringify(documents)));
+			  JSONToCSVConvertor(docData,fileName + " - Documents");
+			  
+		    	xmlhttp.onreadystatechange = function() {
+		  		if (this.readyState == 4 && this.status == 200) {
+		      		var saved_data = JSON.parse(this.responseText);
+		  			allEntities = saved_data.entities;
+		      	}
+		    };
+		    xmlhttp.open("POST", "load_data.php", true);
+		    xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		    xmlhttp.send("file=entities.json");
+		      }, 1000);
+	  }
+  }
+  
+function JSONToCSVConvertor(JSONData, ReportTitle) {
+    //If JSONData is not an object then JSON.parse will parse the JSON string in an Object
+    var arrData = typeof JSONData != 'object' ? JSON.parse(JSONData) : JSONData;
+  
+    var CSV = '';    
+    //Set Report title in first row or line
+  
+    CSV += ReportTitle + '\r\n\n';
+
+    var row = "";
+  
+    //This loop will extract the label from 1st index of on array
+    for (var index in arrData[0]) {
+      
+        //Now convert each value to string and comma-seprated
+        row += index + ',';
+    }
+    row = row.slice(0, -1);
+  
+    //append Label row with line break
+    CSV += row + '\r\n';
+  
+    //1st loop is to extract each row
+    for (var i = 0; i < arrData.length; i++) {
+        var row = "";
+      
+        //2nd loop will extract each column and convert it in string comma-seprated
+        for (var index in arrData[i]) {
+			if (index == "link") {
+				row += "=HYPERLINK(\"C:\\MAMP\\htdocs\\docs\\Documents\\" + arrData[i][index] + "\"),"
+			}
+			else {
+	            row += '"' + arrData[i][index] + '",';
+			}
+        }
+        row.slice(0, row.length - 1);
+      
+        //add a line break after each row
+        CSV += row + '\r\n';
+    }
+
+    if (CSV == '') {        
+        alert("Invalid data");
+        return;
+    }   
+  
+    //Generate a file name
+    //this will remove the blank-spaces from the title and replace it with an underscore
+    var fileName = ReportTitle//.replace(/ /g,"_");   
+  
+    //Initialize file format you want csv or xls
+    var uri = 'data:text/csv;charset=utf-8,' + escape(CSV);
+  
+    // Now the little tricky part.
+    // you can use either>> window.open(uri);
+    // but this will not work in some browsers
+    // or you will not get the correct file extension    
+  
+    //this trick will generate a temp <a /> tag
+    var link = document.createElement("a");    
+    link.href = uri;
+  
+    //set the visibility hidden so it will not effect on your web-layout
+    link.style = "visibility:hidden";
+    link.download = fileName + ".csv";
+  
+    //this part will append the anchor tag and remove it after automatic click
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+</body>
+</html>
+
+

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+	* {
+	  box-sizing: border-box;
+	  font-size: 20px;
+	}
+	
+	#saveBtn {
+		float: left;
+		background-color: #4CDF50;
+	} 
+
+	#cancelBtn {
+		float: right;
+		background-color: #22222222;
+	} 
+
+	#deleteBtn {
+		float: right;
+		background-color: #FC4744;
+		margin-right: 20px;
+	} 
+</style>
+</head>
+<body>
+	<form accept-charset="UTF-8" action="null" autocomplete="off" method="post" enctype="multipart/form-data">
+		<fieldset><legend id="page_title">New Document</legend>
+			<label id="title title">Title: </label> 
+				<select name="titleSelect" id="titleSelect" style="width:160px; height:30px;"><option></option></select><br /><br />
+			<label id="doc name title">Name:</label>
+				<input name="doc_name" id="doc_name" type="text" style="width:250px; height:20px; font-size:15px;" placeholder="Put name" /><br /><br />
+			<label id="doc link title">Document Link:</label> 
+	  			<fieldset id="fileSearchArea">
+	  				<input id="fileInput" type="file" value="" style="font-size:13px;"/>
+	  			</fieldset><br /><br />
+			<label id="date title">Date:</label> 
+				  <input type="text" name="date" id="date" placeholder="mm/dd/yyyy" style="width:100px; height:20px; font-size:17px;"><br /><br />
+	    	<label for="notes title">Notes:</label><br />
+				<textarea name="notes" id="notes" placeholder="Additional notes...." cols="50" rows="5"></textarea><br /><br />
+		 	    <label>Pin-to-top:</label><input name="pinned" id="pinned" type="checkbox"/><br /><br />
+	  	  	<button id="saveBtn" name="saveBtn" type="button" onclick="saveDocument(this);">Add</button>
+			<button class="cancelBtn" id="cancelBtn" name="cancelBtn" type="button" onclick="cancel()">Cancel</button>
+			<button class="deleteBtn" id="deleteBtn" name="deleteBtn" type="button" style="display: none;" onclick="deleteDocument(this);">Delete</button>
+		</fieldset>
+	</form>
+</body>
+<script>
+	var saved_data;
+	var edit_id = "";
+	setPageValues();
+	
+	function setPageValues() {
+	    var date = new Date();
+	    var month = date.getMonth() + 1;
+	    var day = date.getDate();
+	    var year = date.getFullYear().toString().substr(-2);
+
+	    document.getElementById("date").value = String(month) + "/" + String(day) + "/" + String(year);
+		
+	    var xmlhttp = new XMLHttpRequest();		
+	    xmlhttp.onreadystatechange = function() {			
+	    if (this.readyState == 4 && this.status == 200) {			
+	    	saved_data = JSON.parse(this.responseText);
+	  		var entities = saved_data.entities;
+	    	var select = document.getElementById("titleSelect");
+			var titles = [];
+		  	for(index in entities) {
+		  		titles.push(entities[index].title);
+		 	}
+			
+			titles.sort();
+		  	for(index in titles) {
+		  		select.options[select.options.length] = new Option(titles[index], index);
+		 	}
+
+			checkMode();			
+	       }
+	    };	  
+	    xmlhttp.open("POST", "load_data.php", true);
+	    xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+	    xmlhttp.send("file=entities.json");	  
+	}
+	
+	function checkMode() {
+		var vars = getUrlVars();
+		if (vars["mode"] == "edit") {
+			var entity_title = vars["entity_title"];
+			var document_id = vars["document_id"];
+			var entities = saved_data.entities;
+			for (i in entities) {
+				if (entities[i].title == entity_title) {
+					var docs = entities[i].documents;
+					for (j in docs) {
+						if (docs[j].id == document_id) {
+							setEditMode(docs[j]);
+							break;
+						}
+					}
+					break;
+				}
+			}
+		}
+		else {
+			var value = vars["title"];
+			if (value != null) {
+				var title = decodeURI(value);
+			    var titleSelect = document.getElementById("titleSelect");
+				for (i = 0; i < titleSelect.options.length; i++) {
+				    if (titleSelect.options[i].text === title) {
+				        titleSelect.selectedIndex = i;
+						titleSelect.disabled = true;
+				        break;
+				    }
+				}
+			}
+		}
+	}
+	
+	function setEditMode(doc) {
+		var saveBtn = document.getElementById('saveBtn');
+		saveBtn.innerHTML = "Save";
+		edit_id = doc.id;
+		
+		var deleteBtn = document.getElementById('deleteBtn');
+		deleteBtn.style.display="";
+		
+		var titles = document.getElementById('titleSelect');
+		titles.disabled = true;
+		for (i = 0; i < titles.options.length; i++) {
+		    if (titles.options[i].text === doc.title) {
+		        titles.selectedIndex = i;
+		        break;
+		    }
+		}
+
+		document.getElementById('page_title').innerHTML = "Edit Document";
+		document.getElementById('doc_name').value = doc.name;
+		document.getElementById('fileInput').name = doc.link;
+		document.getElementById('date').value = doc.date;
+		document.getElementById('notes').value = doc.notes;
+		document.getElementById('pinned').checked = doc.pinned;	
+		document.getElementById("fileSearchArea").style.display = "none";
+		
+		var docLinkTitle = document.getElementById('doc link title');
+		docLinkTitle.innerHTML = docLinkTitle.innerHTML +" "+ doc.link;
+	}
+  
+	function getUrlVars() {
+	    var vars = {};
+	    var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+	        vars[key] = decodeURI(value);
+	    });
+	    return vars;
+	}
+  	
+  
+	function saveDocument(sender) {
+		var title = document.getElementById('titleSelect')
+		var fileInput = document.getElementById('fileInput');
+		var linkPath = fileInput.value;
+		var linkArr = linkPath.split("\\");
+		var link = linkArr[linkArr.length-1];
+		
+		if (edit_id != "" && linkPath == "") {
+			link = fileInput.name;
+			linkPath = link;
+		}		
+		
+		var date = document.getElementById('date').value;
+		var new_document = {
+   		 title: title.options[title.selectedIndex].innerHTML,
+   		 name: document.getElementById('doc_name').value,
+   		 link: link,
+   		 date: date,
+   		 notes: document.getElementById('notes').value,
+   		 pinned: document.getElementById('pinned').checked,
+			id: "uniqueID"+Math.floor( Date.now() / 1000 )+"xyz"
+		};
+
+		var error = false;
+		if (new_document.title == "") {
+			error = true;
+			document.getElementById('title title').style.color = "red";
+		}else{document.getElementById('title title').style.color = "black";}
+		
+		if (new_document.link == "" || linkPath == "") {
+			error = true;
+			document.getElementById('doc link title').style.color = "red";
+		}else{document.getElementById('doc link title').style.color = "black";}
+
+		var date_set = date.split("/");
+		if (new_document.date != "" && (date_set.length != 3 || date_set[0].length > 2 || date_set[1].length > 2 || date_set[2].length > 2)) {
+			document.getElementById('date title').style.color = "red";
+			alert("Date must be in xx/xx/xx format.");
+			return;
+		}else {document.getElementById('date title').style.color = "black";}
+
+		if (edit_id == "") {
+			for (i in saved_data.entities) {		
+				var docs = saved_data.entities[i].documents;
+				for (j in docs) {
+					if (docs[j].link == link) {
+						document.getElementById('doc link title').style.color = "red";
+						alert("Document Link name already exists in the database.\nPlease change the source files name and then re-select it.");
+						return;
+					}
+				}
+			}
+		}
+		
+		if (error == true) {
+			alert("One or more required fields were not filled out.");
+			return;
+		}
+		
+		if (new_document.name == "") {
+			var arr1 = new_document.link.split('/');
+			var arr2 = arr1[arr1.length-1].split('.');
+			new_document.name = arr2[0];
+		}
+
+		for (index in saved_data.entities) {
+			if (saved_data.entities[index].title == new_document.title) {
+				if (edit_id == "") {
+					saved_data.entities[index].documents.push(new_document);
+					break;			
+				}
+				else {
+					var docIndex = deleteDocument(sender);
+					new_document.id = edit_id;
+					saved_data.entities[index].documents.splice(docIndex, 0, new_document);
+					break;
+				}
+			}
+		}
+
+  		saveData(JSON.stringify(saved_data), "entities.json");	
+	}
+	
+	function deleteDocument(sender) {		
+		var select = document.getElementById('titleSelect');		
+		var title = select.options[select.selectedIndex].innerHTML;
+				
+		for (i in saved_data.entities) {		
+			var entity = saved_data.entities[i];			
+			if (entity.title == title) {								
+				var docs = entity.documents;
+				for (j in docs) {
+					if (docs[j].id == edit_id) {
+						if (sender.name == "saveBtn") {
+							saved_data.entities[i].documents.splice(j, 1);
+							return j;
+						}
+						else if (confirm('This will permanently delete this Document Link from the database.\nAre you sure you wish to continue?')) {
+							if (confirm('This action cannot be undone.\nAre you sure you wish to continue?')) {
+								if (confirm('This is your final warning!\nIf you click "OK", this Document Link will be perminantly deleted.\nAre you sure you wish to continue?')) {
+									saved_data.entities[i].documents.splice(j, 1);
+									saveData(JSON.stringify(saved_data),"entities.json");
+								}
+							}
+							
+						}
+				
+						break;
+					}
+				}
+			
+				break;
+			}
+		}
+	}
+	
+	function saveData(data,file) {
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+				if (file == "entities.json") {
+					var title = document.getElementById('titleSelect')
+					var source = title.options[title.selectedIndex].innerHTML
+					window.open('View Entities.html?source='+encodeURI(source), '_self');
+				}
+			}
+		};
+		xmlhttp.open("POST", "save_data.php", true);
+		xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		xmlhttp.send("data=" + data + "&file=" + file);
+	}
+	
+	function cancel() {
+		var title = document.getElementById('titleSelect')
+		var source = title.options[title.selectedIndex].innerHTML
+		window.open('View Entities.html?source='+encodeURI(source), '_self');
+	}
+	
+	function uploadFile() {
+		const url = 'upload_document.php';
+	    const files = document.querySelector('[type=file]').files;
+	    const formData = new FormData();
+		
+		if (files[0].size > 2097152) {
+			if (!confirm("The selected file exceeds the 2MB maximum upload size.\nWould you like to continue saving the database entry and then manually move the file to the folder on the server?")) {
+				return false;
+			}
+		}
+		
+        formData.append('files[]', files[0]);
+
+	    fetch(url, {
+	        method: 'POST',
+	        body: formData
+	    }).then(response => {
+	        console.log(response);
+	    });
+		
+		return true;
+	}
+</script>
+</html>
+
+
